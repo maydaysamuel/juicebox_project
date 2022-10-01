@@ -1,6 +1,6 @@
 const { Client } = require('pg');
 
-const client = new Client('postgres://localhost:5432/juicebox-dev');
+const client = new Client(process.env.DATABASE_URL || 'postgres://localhost:5432/juicebox-dev');
 
 async function createUser({ 
     username, 
@@ -67,13 +67,37 @@ async function createUser({
       `);
   
       if (!user) {
-        console.log('User does not exist')
+        throw {
+          name: 'UserNotFoundError',
+          message: 'No user found with that ID'
+        }
       }
   
       user.posts = await getPostsByUser(userId);
   
       return user;
     } catch (error) {
+      throw error;
+    }
+  }
+
+  async function getUserByUsername(username) {
+    try {
+      const { rows: [ user ] } = await client.query(`
+        SELECT *
+        FROM users
+        WHERE username=$1;
+      `, [ username ]);
+
+      if(!user) {
+        throw {
+          name: 'UserNotFoundError',
+          message: 'A user with that username does not exist'
+        }
+      }
+
+      return user;
+    } catch(error) {
       throw error;
     }
   }
@@ -169,7 +193,7 @@ async function createUser({
       if (!post) {
         throw {
           name: "PostNotFoundError",
-          message: "Could not find a post with that postId"
+          message: "Could not find a post with that postID"
         };
       }
   
@@ -310,6 +334,7 @@ async function createUser({
     updateUser,
     getAllUsers,
     getUserById,
+    getUserByUsername,
     getPostById,
     createPost,
     updatePost,
